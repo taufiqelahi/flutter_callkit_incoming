@@ -26,8 +26,9 @@ class DeclineWorker(
         }
 
         // POST {baseUrl}/calls/{id}/decline
-        val url = baseUrl.trimEnd('/') + "/calls/$callId/decline"
-
+        val cleanBase = baseUrl.trimEnd('/')
+        val url = "$cleanBase/test-api/"
+         Log.d(TAG, "🌍 Decline URL: $url")
         try {
             val client = OkHttpClient.Builder()
                 .callTimeout(8, TimeUnit.SECONDS)
