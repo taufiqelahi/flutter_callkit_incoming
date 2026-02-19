@@ -37,9 +37,10 @@ class DeclineWorker(
                 .build()
 
             val body = "".toRequestBody("application/json".toMediaType())
+
             val req = Request.Builder()
                 .url(url)
-                .post(body)
+                .get()     // ✅ GET method
                 .build()
 
             client.newCall(req).execute().use { res ->
@@ -50,11 +51,22 @@ class DeclineWorker(
 
                 Log.e(TAG, "❌ Decline failed. callId=$callId code=${res.code}")
                 // Retry for temporary server/network issues
-                return@withContext Result.retry()
+                if (runAttemptCount < 1) {
+                   Log.d(TAG, "🔁 Scheduling one retry...")
+                  return@withContext Result.retry()
+                }
+
+               Log.e(TAG, "⛔ Retry limit reached. Stopping.")
+               return@withContext Result.failure()
             }
         } catch (e: Exception) {
             Log.e(TAG, "❌ Decline exception. callId=$callId", e)
-            return@withContext Result.retry()
+            if (runAttemptCount < 1) {
+                Log.d(TAG, "🔁 Exception retry...")
+                return@withContext Result.retry()
+            }
+
+            return@withContext Result.failure()
         }
     }
 
