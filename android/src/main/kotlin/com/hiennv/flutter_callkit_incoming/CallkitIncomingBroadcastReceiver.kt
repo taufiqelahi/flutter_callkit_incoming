@@ -89,6 +89,8 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
 
     @SuppressLint("MissingPermission")
     override fun onReceive(context: Context, intent: Intent) {
+            Log.e(TAG, "🔥🔥🔥 RECEIVER HIT action=${intent.action} extras=${intent.extras?.keySet()}")
+
         val action = intent.action ?: return
         val data = intent.extras?.getBundle(CallkitConstants.EXTRA_CALLKIT_INCOMING_DATA) ?: return
         when (action) {
