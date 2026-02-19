@@ -141,6 +141,23 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                     FlutterCallkitIncomingPlugin.notifyEventCallbacks(CallkitEventCallback.CallEvent.DECLINE, data)
                     // clear notification
                     getCallkitNotificationManager()?.clearIncomingNotification(data, false)
+                    val callId = data.getString(CallkitConstants.EXTRA_CALLKIT_ID, "")
+                    val extra = data.getSerializable(CallkitConstants.EXTRA_CALLKIT_EXTRA) as? HashMap<*, *>
+                    val baseUrl = (extra?.get("baseUrl") as? String).orEmpty()
+                    
+                    Log.i("CallkitIncomingReceiver", "Decline tapped. callId=$callId baseUrl=$baseUrl")
+                    
+                    // Small popup so you can visually confirm the receiver fired
+                    try {
+                        android.widget.Toast.makeText(context, "Decline: notifying server…", android.widget.Toast.LENGTH_SHORT).show()
+                    } catch (_: Exception) {}
+                    
+                    // Enqueue background job
+                    if (callId.isNotBlank() && baseUrl.isNotBlank()) {
+                        DeclineWorker.enqueue(context, callId, baseUrl)
+                    } else {
+                        Log.e("CallkitIncomingReceiver", "Missing callId/baseUrl; cannot notify backend.")
+                    }
                     sendEventFlutter(CallkitConstants.ACTION_CALL_DECLINE, data)
                     removeCall(context, Data.fromBundle(data))
                 } catch (error: Exception) {
