@@ -146,6 +146,15 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                     val callId = data.getString(CallkitConstants.EXTRA_CALLKIT_ID, "")
                     val extra = data.getSerializable(CallkitConstants.EXTRA_CALLKIT_EXTRA) as? HashMap<*, *>
                     val baseUrl = (extra?.get("baseUrl") as? String).orEmpty()
+                    val receiverId = (extra?.get("receiver_id") as? String)
+                        ?: (extra?.get("receiverId") as? String)
+                        ?: (extra?.get("receiver") as? String)
+                        ?: ""
+
+                    val actionToken = (extra?.get("action_token") as? String)
+                        ?: (extra?.get("actionToken") as? String)
+                        ?: (extra?.get("token") as? String)
+                        ?: ""
                     
                     Log.i("CallkitIncomingReceiver", "Decline tapped. callId=$callId baseUrl=$baseUrl")
                     
@@ -156,7 +165,13 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                     
                     // Enqueue background job
                     if (callId.isNotBlank() && baseUrl.isNotBlank()) {
-                        DeclineWorker.enqueue(context, callId, baseUrl)
+                         DeclineWorker.enqueue(
+                                    context = context,
+                                    callId = callId,
+                                    baseUrl = baseUrl,
+                                    receiverId = receiverId,
+                                    actionToken = actionToken
+                                )                  
                     } else {
                         Log.e("CallkitIncomingReceiver", "Missing callId/baseUrl; cannot notify backend.")
                     }
