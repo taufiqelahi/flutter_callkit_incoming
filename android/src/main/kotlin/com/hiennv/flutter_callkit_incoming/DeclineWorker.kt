@@ -19,6 +19,8 @@ class DeclineWorker(
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val callId = inputData.getString(KEY_CALL_ID).orEmpty()
         val baseUrl = inputData.getString(KEY_BASE_URL).orEmpty()
+        val receiverId = inputData.getString(KEY_RECEIVER_ID).orEmpty()
+        val actionToken = inputData.getString(KEY_ACTION_TOKEN).orEmpty()
 
         if (callId.isBlank() || baseUrl.isBlank()) {
             Log.e(TAG, "Missing callId/baseUrl. callId=$callId baseUrl=$baseUrl")
@@ -27,7 +29,7 @@ class DeclineWorker(
 
         // POST {baseUrl}/calls/{id}/decline
         val cleanBase = baseUrl.trimEnd('/')
-        val url = "$cleanBase/test-api/"
+        val url = "$cleanBase/calls/call-logs/$callId/decline-bg/"
          Log.d(TAG, "🌍 Decline URL: $url")
         try {
             val client = OkHttpClient.Builder()
@@ -35,12 +37,19 @@ class DeclineWorker(
                 .connectTimeout(5, TimeUnit.SECONDS)
                 .readTimeout(5, TimeUnit.SECONDS)
                 .build()
+            val json = """
+                {
+                  "receiver_id": "${escapeJson(receiverId)}",
+                  "action_token": "${escapeJson(actionToken)}"
+                }
+              """.trimIndent()
 
-            val body = "".toRequestBody("application/json".toMediaType())
+
+            val body = json.toRequestBody("application/json".toMediaType())
 
             val req = Request.Builder()
                 .url(url)
-                .get()     // ✅ GET method
+                .post(body) // ✅ post method
                 .build()
 
             client.newCall(req).execute().use { res ->
