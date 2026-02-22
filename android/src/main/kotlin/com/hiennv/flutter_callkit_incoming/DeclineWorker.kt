@@ -79,28 +79,40 @@ class DeclineWorker(
         }
     }
 
-    companion object {
+        companion object {
         private const val TAG = "CallkitDeclineWorker"
         private const val KEY_CALL_ID = "call_id"
         private const val KEY_BASE_URL = "base_url"
+        private const val KEY_RECEIVER_ID = "receiver_id"
+        private const val KEY_ACTION_TOKEN = "action_token"
 
-        fun enqueue(context: Context, callId: String, baseUrl: String) {
+        fun enqueue(
+            context: Context,
+            callId: String,
+            baseUrl: String,
+            receiverId: String,
+            actionToken: String,
+        ) {
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
 
             val data = workDataOf(
                 KEY_CALL_ID to callId,
-                KEY_BASE_URL to baseUrl
+                KEY_BASE_URL to baseUrl,
+                KEY_RECEIVER_ID to receiverId,
+                KEY_ACTION_TOKEN to actionToken,
             )
 
             val req = OneTimeWorkRequestBuilder<DeclineWorker>()
                 .setConstraints(constraints)
                 .setInputData(data)
+                // Backoff applies when Result.retry() is returned
                 .setBackoffCriteria(
                     BackoffPolicy.EXPONENTIAL,
-                    5, TimeUnit.SECONDS
+                    10, TimeUnit.SECONDS
                 )
+                .addTag("callkit_decline")
                 .build()
 
             WorkManager.getInstance(context).enqueueUniqueWork(
@@ -109,5 +121,13 @@ class DeclineWorker(
                 req
             )
         }
+
+        // Minimal JSON escaping for quotes/backslashes/newlines
+        private fun escapeJson(s: String): String =
+            s.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t")
     }
 }
