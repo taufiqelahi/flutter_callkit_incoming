@@ -21,7 +21,12 @@ class DeclineWorker(
         val baseUrl = inputData.getString(KEY_BASE_URL).orEmpty()
         val receiverId = inputData.getString(KEY_RECEIVER_ID).orEmpty()
         val actionToken = inputData.getString(KEY_ACTION_TOKEN).orEmpty()
+        val type = inputData.getString(KEY_TYPE).orEmpty()
 
+        if (type != "call") {
+        Log.d(TAG, "Skipping decline API because type=$type")
+        return@withContext Result.success()
+         }
         if (callId.isBlank() || baseUrl.isBlank()) {
             Log.e(TAG, "Missing callId/baseUrl. callId=$callId baseUrl=$baseUrl")
             return@withContext Result.failure()
@@ -85,6 +90,7 @@ class DeclineWorker(
         private const val KEY_BASE_URL = "base_url"
         private const val KEY_RECEIVER_ID = "receiver_id"
         private const val KEY_ACTION_TOKEN = "action_token"
+        private const val KEY_TYPE = "type"
 
         fun enqueue(
             context: Context,
@@ -92,6 +98,8 @@ class DeclineWorker(
             baseUrl: String,
             receiverId: String,
             actionToken: String,
+            type: String,
+
         ) {
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -102,6 +110,8 @@ class DeclineWorker(
                 KEY_BASE_URL to baseUrl,
                 KEY_RECEIVER_ID to receiverId,
                 KEY_ACTION_TOKEN to actionToken,
+                KEY_TYPE to type,
+
             )
 
             val req = OneTimeWorkRequestBuilder<DeclineWorker>()
