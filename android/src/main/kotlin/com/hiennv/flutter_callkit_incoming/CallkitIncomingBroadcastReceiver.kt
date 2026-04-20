@@ -155,8 +155,8 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                         ?: (extra?.get("actionToken") as? String)
                         ?: (extra?.get("token") as? String)
                         ?: ""
-                    
-                    Log.i("CallkitIncomingReceiver", "Decline tapped. callId=$callId baseUrl=$baseUrl")
+                    val type = (extra?.get("type") as? String).orEmpty()
+                    Log.i("CallkitIncomingReceiver", "Decline tapped. callId=$callId baseUrl=$baseUrl type=$type")
                     
                     // Small popup so you can visually confirm the receiver fired
                     try {
