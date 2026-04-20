@@ -170,7 +170,7 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                                     callId = callId,
                                     baseUrl = baseUrl,
                                     receiverId = receiverId,
-                                    actionToken = actionToken
+                                    actionToken = actionToken,
                                     type = type
 
                                 )                  
