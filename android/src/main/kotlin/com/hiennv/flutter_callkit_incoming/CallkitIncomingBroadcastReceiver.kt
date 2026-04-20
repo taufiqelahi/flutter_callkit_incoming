@@ -171,6 +171,8 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                                     baseUrl = baseUrl,
                                     receiverId = receiverId,
                                     actionToken = actionToken
+                                    type = type
+
                                 )                  
                     } else {
                         Log.e("CallkitIncomingReceiver", "Missing callId/baseUrl; cannot notify backend.")
