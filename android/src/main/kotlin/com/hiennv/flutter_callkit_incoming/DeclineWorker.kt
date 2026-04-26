@@ -23,10 +23,10 @@ class DeclineWorker(
         val actionToken = inputData.getString(KEY_ACTION_TOKEN).orEmpty()
         val type = inputData.getString(KEY_TYPE).orEmpty()
 
-        if (type != "call") {
-        Log.d(TAG, "Skipping decline API because type=$type")
-        return@withContext Result.success()
-         }
+        if (type != "call" && type != "group_call") {
+            Log.d(TAG, "Skipping decline API because type=$type")
+            return@withContext Result.success()
+        }
         if (callId.isBlank() || baseUrl.isBlank()) {
             Log.e(TAG, "Missing callId/baseUrl. callId=$callId baseUrl=$baseUrl")
             return@withContext Result.failure()
@@ -34,8 +34,12 @@ class DeclineWorker(
 
         // POST {baseUrl}/calls/{id}/decline
         val cleanBase = baseUrl.trimEnd('/')
-        val url = "$cleanBase/calls/call-logs/$callId/decline-bg/"
-         Log.d(TAG, "🌍 Decline URL: $url")
+        val url = if (type == "group_call") {
+            "$cleanBase/calls/group-call/$callId/decline-bg/"
+        } else {
+            "$cleanBase/calls/call-logs/$callId/decline-bg/"
+        }  
+        Log.d(TAG, "🌍 Decline URL: $url")
         try {
             val client = OkHttpClient.Builder()
                 .callTimeout(8, TimeUnit.SECONDS)
