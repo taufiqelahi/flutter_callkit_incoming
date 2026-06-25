@@ -145,91 +145,125 @@ class CallkitNotificationService : Service() {
         return START_STICKY
     }
 
-    @SuppressLint("MissingPermission")
-    private fun showOngoingCallNotification(bundle: Bundle) {
-        val manager = getCallkitNotificationManager()
+@SuppressLint("MissingPermission")
+private fun showOngoingCallNotification(bundle: Bundle) {
+    val manager = getCallkitNotificationManager()
 
-        if (manager == null) {
-            Log.e(TAG, "CallkitNotificationManager is unavailable")
+    if (manager == null) {
+        Log.e(TAG, "CallkitNotificationManager is unavailable")
+        stopSelf()
+        return
+    }
+
+    // getOnGoingCallNotification returns CallkitNotification?
+val callkitNotification =
+    manager.getOnGoingCallNotification(bundle, false)
+        ?: run {
+            Log.e(TAG, "Could not create ongoing call notification")
+            stopSelf()
             return
         }
 
-        val callkitNotification =
-            manager.getOnGoingCallNotification(bundle, false)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        var serviceTypes =
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            var serviceTypes =
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
+        val microphoneGranted =
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED
 
-            val microphoneGranted =
-                ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.RECORD_AUDIO
-                ) == PackageManager.PERMISSION_GRANTED
+        val cameraGranted =
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.CAMERA
+            ) == PackageManager.PERMISSION_GRANTED
 
-            val cameraGranted =
-                ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.CAMERA
-                ) == PackageManager.PERMISSION_GRANTED
+        val isVideoCall =
+            bundle.getInt(
+                CallkitConstants.EXTRA_CALLKIT_TYPE,
+                0
+            ) == 1
 
-            val isVideoCall =
-                bundle.getInt(
-                    CallkitConstants.EXTRA_CALLKIT_TYPE,
-                    0
-                ) == 1
-
-            if (microphoneGranted) {
-                serviceTypes =
-                    serviceTypes or
+        if (microphoneGranted) {
+            serviceTypes =
+                serviceTypes or
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
-            }
+        }
 
-            if (isVideoCall && cameraGranted) {
-                serviceTypes =
-                    serviceTypes or
+        if (isVideoCall && cameraGranted) {
+            serviceTypes =
+                serviceTypes or
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
-            }
+        }
+
+        try {
+            startForeground(
+                callkitNotification.id,
+                callkitNotification.notification,
+                serviceTypes
+            )
+        } catch (securityException: SecurityException) {
+            Log.e(
+                TAG,
+                "Media foreground service type rejected; trying phoneCall only",
+                securityException
+            )
 
             try {
                 startForeground(
                     callkitNotification.id,
                     callkitNotification.notification,
-                    serviceTypes
-                )
-            } catch (securityException: SecurityException) {
-                /*
-                 * A microphone/camera FGS can be rejected when Android
-                 * considers the app ineligible for while-in-use access.
-                 * Keep the call notification alive using phoneCall.
-                 */
-                Log.e(
-                    TAG,
-                    "Media FGS type rejected; using phoneCall only",
-                    securityException
-                )
-
-                startForeground(
-                    callkitNotification.id,
-                    callkitNotification.notification,
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
                 )
+            } catch (fallbackException: Exception) {
+                Log.e(
+                    TAG,
+                    "Unable to start phone-call foreground service",
+                    fallbackException
+                )
+                stopSelf()
             }
-        } else if (
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-        ) {
+        } catch (exception: Exception) {
+            Log.e(
+                TAG,
+                "Unable to start call foreground service",
+                exception
+            )
+            stopSelf()
+        }
+    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        try {
             startForeground(
                 callkitNotification.id,
                 callkitNotification.notification,
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
             )
-        } else {
+        } catch (exception: Exception) {
+            Log.e(
+                TAG,
+                "Unable to start phone-call foreground service",
+                exception
+            )
+            stopSelf()
+        }
+    } else {
+        try {
             startForeground(
                 callkitNotification.id,
                 callkitNotification.notification
             )
+        } catch (exception: Exception) {
+            Log.e(
+                TAG,
+                "Unable to start foreground service",
+                exception
+            )
+            stopSelf()
         }
     }
+}
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
