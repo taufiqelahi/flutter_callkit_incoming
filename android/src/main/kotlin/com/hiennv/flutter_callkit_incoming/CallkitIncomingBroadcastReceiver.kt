@@ -150,6 +150,9 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                         ?: (extra?.get("receiverId") as? String)
                         ?: (extra?.get("receiver") as? String)
                         ?: ""
+                    val apiCallId = (extra?.get("call_id") as? String)
+                        ?: (extra?.get("callId") as? String)
+                        ?: ""
 
                     val actionToken = (extra?.get("action_token") as? String)
                         ?: (extra?.get("actionToken") as? String)
@@ -167,7 +170,7 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                     if (callId.isNotBlank() && baseUrl.isNotBlank()) {
                          DeclineWorker.enqueue(
                                     context = context,
-                                    callId = callId,
+                                    callId = apiCallId,
                                     baseUrl = baseUrl,
                                     receiverId = receiverId,
                                     actionToken = actionToken,
