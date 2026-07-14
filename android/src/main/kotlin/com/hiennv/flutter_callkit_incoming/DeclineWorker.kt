@@ -23,7 +23,7 @@ class DeclineWorker(
         val actionToken = inputData.getString(KEY_ACTION_TOKEN).orEmpty()
         val type = inputData.getString(KEY_TYPE).orEmpty()
 
-        if (type != "call" && type != "group_call") {
+        if (type != "call" && type != "group_call"&&type!="CALL_INVITE") {
             Log.d(TAG, "Skipping decline API because type=$type")
             return@withContext Result.success()
         }
