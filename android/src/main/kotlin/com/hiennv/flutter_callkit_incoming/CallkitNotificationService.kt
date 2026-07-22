@@ -56,15 +56,17 @@ class CallkitNotificationService : Service() {
             }
         }
 
-        fun stopService(context: Context) {
-            val intent = Intent(
-                context,
-                CallkitNotificationService::class.java
-            )
+   fun stopService(context: Context) {
+    // Release immediately, even before Android destroys the service.
+    CallkitPowerManager.deactivate()
 
-            context.stopService(intent)
-        }
-    }
+    val intent = Intent(
+        context,
+        CallkitNotificationService::class.java
+    )
+
+    context.stopService(intent)
+}
 
     private fun getCallkitNotificationManager():
         CallkitNotificationManager? {
@@ -77,6 +79,20 @@ class CallkitNotificationService : Service() {
         super.onCreate()
         Log.d(TAG, "Call notification service created")
     }
+    private fun activateCallPowerManagement(
+    bundle: Bundle
+) {
+    val isVideoCall =
+        bundle.getInt(
+            CallkitConstants.EXTRA_CALLKIT_TYPE,
+            0
+        ) == 1
+
+    CallkitPowerManager.activate(
+        context = applicationContext,
+        enableProximity = !isVideoCall
+    )
+}
 
     override fun onStartCommand(
         intent: Intent?,
@@ -105,37 +121,45 @@ class CallkitNotificationService : Service() {
         }
 
         when (action) {
-            CallkitConstants.ACTION_CALL_START -> {
-                val shouldShow = bundle.getBoolean(
-                    CallkitConstants.EXTRA_CALLKIT_CALLING_SHOW,
-                    true
-                )
+        CallkitConstants.ACTION_CALL_START -> {
+    val shouldShow = bundle.getBoolean(
+        CallkitConstants.EXTRA_CALLKIT_CALLING_SHOW,
+        true
+    )
 
-                if (shouldShow) {
-                    getCallkitNotificationManager()
-                        ?.createNotificationChanel(bundle)
+    if (shouldShow) {
+        getCallkitNotificationManager()
+            ?.createNotificationChanel(bundle)
 
-                    showOngoingCallNotification(bundle)
-                } else {
-                    stopSelf()
-                }
-            }
+        showOngoingCallNotification(bundle)
 
-            CallkitConstants.ACTION_CALL_ACCEPT -> {
-                getCallkitNotificationManager()
-                    ?.clearIncomingNotification(bundle, true)
+        // Outgoing call is now active.
+        activateCallPowerManagement(bundle)
+    } else {
+        CallkitPowerManager.deactivate()
+        stopSelf()
+    }
+}
 
-                val shouldShow = bundle.getBoolean(
-                    CallkitConstants.EXTRA_CALLKIT_CALLING_SHOW,
-                    true
-                )
+     CallkitConstants.ACTION_CALL_ACCEPT -> {
+    getCallkitNotificationManager()
+        ?.clearIncomingNotification(bundle, true)
 
-                if (shouldShow) {
-                    showOngoingCallNotification(bundle)
-                } else {
-                    stopSelf()
-                }
-            }
+    val shouldShow = bundle.getBoolean(
+        CallkitConstants.EXTRA_CALLKIT_CALLING_SHOW,
+        true
+    )
+
+    if (shouldShow) {
+        showOngoingCallNotification(bundle)
+
+        // Incoming call has been accepted.
+        activateCallPowerManagement(bundle)
+    } else {
+        CallkitPowerManager.deactivate()
+        stopSelf()
+    }
+}
 
             else -> {
                 Log.d(TAG, "Unknown action: $action")
@@ -278,15 +302,14 @@ val callkitNotification =
         // Do not call stopSelf().
     }
 
-    override fun onDestroy() {
-        Log.d(TAG, "Call notification service destroyed")
-        super.onDestroy()
+   override fun onDestroy() {
+    Log.d(TAG, "Call notification service destroyed")
 
-        /*
-         * Do not remove the notification here unless the call
-         * has actually ended.
-         */
-    }
+    // Safety fallback.
+    CallkitPowerManager.deactivate()
+
+    super.onDestroy()
+}
 
     override fun onBind(intent: Intent?): IBinder? {
         return null
