@@ -16,6 +16,7 @@ import androidx.core.content.ContextCompat
 class CallkitNotificationService : Service() {
 
     companion object {
+
         private const val TAG = "CallkitNotification"
 
         private val foregroundActions = setOf(
@@ -46,8 +47,9 @@ class CallkitNotificationService : Service() {
 
             /*
              * A foreground service must show a notification.
-             * Therefore, do not start this service when the ongoing-call
-             * notification is disabled.
+             *
+             * Do not start this service when the ongoing-call notification
+             * has been disabled.
              */
             if (
                 action in foregroundActions &&
@@ -87,10 +89,12 @@ class CallkitNotificationService : Service() {
             }
         }
 
-        fun stopService(context: Context) {
+        fun stopService(
+            context: Context
+        ) {
             /*
-             * Release immediately instead of waiting for Android to call
-             * onDestroy().
+             * Release immediately instead of waiting for Android
+             * to invoke onDestroy().
              */
             CallkitPowerManager.deactivate()
 
@@ -119,26 +123,27 @@ class CallkitNotificationService : Service() {
         )
     }
 
-private fun activateCallPowerManagement() {
-    /*
-     * The general CPU wake lock remains active for the whole call.
+    /**
+     * Activates the CPU wake lock for the active call.
      *
-     * Proximity starts disabled because the original call type does
-     * not represent the current runtime media state.
+     * Proximity initially remains disabled because the original call type
+     * does not necessarily represent the current media state.
      *
-     * Flutter enables or disables proximity after checking:
-     * - local camera
-     * - remote camera
-     * - local screen share
-     * - remote screen share
+     * Flutter will later enable proximity when:
+     * - the call is connected;
+     * - the local camera is off;
+     * - all remote cameras are off;
+     * - local screen sharing is off; and
+     * - remote screen sharing is off.
      *
      * Speaker mode is intentionally ignored.
      */
-    CallkitPowerManager.activate(
-        context = applicationContext,
-        enableProximity = false
-    )
-}
+    private fun activateCallPowerManagement() {
+        CallkitPowerManager.activate(
+            context = applicationContext,
+            enableProximity = false
+        )
+    }
 
     override fun onStartCommand(
         intent: Intent?,
@@ -149,8 +154,8 @@ private fun activateCallPowerManagement() {
 
         /*
          * START_STICKY can restart the service without the original Intent.
-         * Without the call Bundle, this service cannot safely rebuild the
-         * foreground notification.
+         * Without the action and call bundle, the foreground notification
+         * cannot safely be rebuilt.
          */
         if (action == null) {
             Log.w(
@@ -164,9 +169,10 @@ private fun activateCallPowerManagement() {
             return START_NOT_STICKY
         }
 
-        val bundle = intent.getBundleExtra(
-            CallkitConstants.EXTRA_CALLKIT_INCOMING_DATA
-        )
+        val bundle =
+            intent.getBundleExtra(
+                CallkitConstants.EXTRA_CALLKIT_INCOMING_DATA
+            )
 
         if (bundle == null) {
             Log.w(
@@ -191,10 +197,10 @@ private fun activateCallPowerManagement() {
 
                     if (foregroundStarted) {
                         /*
-                         * Outgoing call service successfully became a
-                         * foreground service.
+                         * The service successfully became a foreground
+                         * service. The CPU wake lock can now be acquired.
                          */
-                        activateCallPowerManagement(bundle)
+                        activateCallPowerManagement()
                     }
 
                     foregroundStarted
@@ -212,10 +218,10 @@ private fun activateCallPowerManagement() {
 
                     if (foregroundStarted) {
                         /*
-                         * Accepted incoming call successfully became a
-                         * foreground service.
+                         * The accepted incoming call successfully became
+                         * a foreground service.
                          */
-                        activateCallPowerManagement(bundle)
+                        activateCallPowerManagement()
                     }
 
                     foregroundStarted
@@ -447,8 +453,8 @@ private fun activateCallPowerManagement() {
         )
 
         /*
-         * Safety fallback.
-         * deactivate() should check whether each wake lock is currently held.
+         * Safety fallback. deactivate() safely checks whether each
+         * wake lock is held before releasing it.
          */
         CallkitPowerManager.deactivate()
 
