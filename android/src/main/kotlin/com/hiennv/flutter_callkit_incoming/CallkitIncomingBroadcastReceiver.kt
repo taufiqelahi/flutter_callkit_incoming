@@ -143,6 +143,7 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                     FlutterCallkitIncomingPlugin.notifyEventCallbacks(CallkitEventCallback.CallEvent.DECLINE, data)
                     // clear notification
                     getCallkitNotificationManager()?.clearIncomingNotification(data, false)
+                    CallkitNotificationService.stopService(context)
                     val callId = data.getString(CallkitConstants.EXTRA_CALLKIT_ID, "")
                     val extra = data.getSerializable(CallkitConstants.EXTRA_CALLKIT_EXTRA) as? HashMap<*, *>
                     val baseUrl = (extra?.get("baseUrl") as? String).orEmpty()
@@ -199,18 +200,33 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                 }
             }
 
-            "${context.packageName}.${CallkitConstants.ACTION_CALL_TIMEOUT}" -> {
-                try {
-                    // clear notification and show miss notification
-                    val notificationManager = getCallkitNotificationManager()
-                    notificationManager?.clearIncomingNotification(data, false)
-                    notificationManager?.showMissCallNotification(data)
-                    sendEventFlutter(CallkitConstants.ACTION_CALL_TIMEOUT, data)
-                    removeCall(context, Data.fromBundle(data))
-                } catch (error: Exception) {
-                    Log.e(TAG, null, error)
-                }
-            }
+       "${context.packageName}.${CallkitConstants.ACTION_CALL_TIMEOUT}" -> {
+    try {
+        val notificationManager =
+            getCallkitNotificationManager()
+
+        notificationManager
+            ?.clearIncomingNotification(data, false)
+
+        notificationManager
+            ?.showMissCallNotification(data)
+
+        // Release CPU and proximity locks.
+        CallkitNotificationService.stopService(context)
+
+        sendEventFlutter(
+            CallkitConstants.ACTION_CALL_TIMEOUT,
+            data
+        )
+
+        removeCall(
+            context,
+            Data.fromBundle(data)
+        )
+    } catch (error: Exception) {
+        Log.e(TAG, null, error)
+    }
+}
 
             "${context.packageName}.${CallkitConstants.ACTION_CALL_CONNECTED}" -> {
                 try {
