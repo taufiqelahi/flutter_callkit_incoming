@@ -9,10 +9,12 @@ import android.util.Log
  * Controls native Android power behavior during an active call.
  *
  * CPU wake lock:
- * Keeps the CPU available while an accepted/outgoing call is active.
+ * Keeps the CPU available throughout the active call.
  *
  * Proximity wake lock:
- * Turns the screen off when the phone is close to the ear.
+ * Turns the display off when the device is close to the user's ear.
+ *
+ * CPU and proximity wake locks are managed independently.
  */
 internal object CallkitPowerManager {
 
@@ -33,12 +35,12 @@ internal object CallkitPowerManager {
     private var proximityWakeLock: PowerManager.WakeLock? = null
 
     /**
-     * Called when:
-     * - an outgoing call starts; or
-     * - an incoming call is accepted.
+     * Activates power management for an accepted or outgoing call.
      *
-     * For audio calls, proximity starts enabled.
-     * For video calls, proximity starts disabled.
+     * The CPU wake lock remains active for the complete call.
+     *
+     * Proximity can later be enabled or disabled independently through
+     * [setProximityEnabled].
      */
     fun activate(
         context: Context,
@@ -58,13 +60,21 @@ internal object CallkitPowerManager {
 
             Log.d(
                 TAG,
-                "Activated: proximity=$enableProximity"
+                "Power management activated: proximity=$enableProximity"
             )
         }
     }
 
     /**
-     * Call this whenever speaker/camera/screen-share/audio route changes.
+     * Updates only the proximity wake lock.
+     *
+     * Use this whenever these states change:
+     * - local camera
+     * - remote camera
+     * - local screen sharing
+     * - remote screen sharing
+     *
+     * Speaker mode and audio routing must not control proximity.
      */
     fun setProximityEnabled(
         context: Context,
@@ -80,12 +90,15 @@ internal object CallkitPowerManager {
 
             updateProximityWakeLock(powerManager)
 
-            Log.d(TAG, "Proximity enabled=$enabled")
+            Log.d(
+                TAG,
+                "Proximity state updated: enabled=$enabled"
+            )
         }
     }
 
     /**
-     * Called whenever the call finishes.
+     * Releases all power resources when the call finishes.
      */
     fun deactivate() {
         synchronized(lock) {
@@ -98,7 +111,10 @@ internal object CallkitPowerManager {
             proximityWakeLock = null
             cpuWakeLock = null
 
-            Log.d(TAG, "All call wake locks released")
+            Log.d(
+                TAG,
+                "All call wake locks released"
+            )
         }
     }
 
@@ -116,17 +132,23 @@ internal object CallkitPowerManager {
 
         val wakeLock = cpuWakeLock ?: return
 
-        if (!wakeLock.isHeld) {
-            try {
-                wakeLock.acquire()
-                Log.d(TAG, "CPU wake lock acquired")
-            } catch (exception: Exception) {
-                Log.e(
-                    TAG,
-                    "Unable to acquire CPU wake lock",
-                    exception
-                )
-            }
+        if (wakeLock.isHeld) {
+            return
+        }
+
+        try {
+            wakeLock.acquire()
+
+            Log.d(
+                TAG,
+                "CPU wake lock acquired"
+            )
+        } catch (exception: Exception) {
+            Log.e(
+                TAG,
+                "Unable to acquire CPU wake lock",
+                exception
+            )
         }
     }
 
@@ -165,28 +187,40 @@ internal object CallkitPowerManager {
 
         val wakeLock = proximityWakeLock ?: return
 
-        if (!wakeLock.isHeld) {
-            try {
-                wakeLock.acquire()
-                Log.d(TAG, "Proximity wake lock acquired")
-            } catch (exception: Exception) {
-                Log.e(
-                    TAG,
-                    "Unable to acquire proximity wake lock",
-                    exception
-                )
-            }
+        if (wakeLock.isHeld) {
+            return
+        }
+
+        try {
+            wakeLock.acquire()
+
+            Log.d(
+                TAG,
+                "Proximity wake lock acquired"
+            )
+        } catch (exception: Exception) {
+            Log.e(
+                TAG,
+                "Unable to acquire proximity wake lock",
+                exception
+            )
         }
     }
 
     private fun releaseCpuWakeLock() {
         val wakeLock = cpuWakeLock ?: return
 
-        if (!wakeLock.isHeld) return
+        if (!wakeLock.isHeld) {
+            return
+        }
 
         try {
             wakeLock.release()
-            Log.d(TAG, "CPU wake lock released")
+
+            Log.d(
+                TAG,
+                "CPU wake lock released"
+            )
         } catch (exception: Exception) {
             Log.e(
                 TAG,
@@ -199,7 +233,9 @@ internal object CallkitPowerManager {
     private fun releaseProximityWakeLock() {
         val wakeLock = proximityWakeLock ?: return
 
-        if (!wakeLock.isHeld) return
+        if (!wakeLock.isHeld) {
+            return
+        }
 
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -210,7 +246,10 @@ internal object CallkitPowerManager {
                 wakeLock.release()
             }
 
-            Log.d(TAG, "Proximity wake lock released")
+            Log.d(
+                TAG,
+                "Proximity wake lock released"
+            )
         } catch (exception: Exception) {
             Log.e(
                 TAG,
