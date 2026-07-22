@@ -119,28 +119,26 @@ class CallkitNotificationService : Service() {
         )
     }
 
-    private fun activateCallPowerManagement(
-        bundle: Bundle
-    ) {
-        val isVideoCall =
-            bundle.getInt(
-                CallkitConstants.EXTRA_CALLKIT_TYPE,
-                0
-            ) == 1
-
-        CallkitPowerManager.activate(
-            context = applicationContext,
-
-            /*
-             * Audio call:
-             * proximity starts enabled.
-             *
-             * Video call:
-             * proximity starts disabled.
-             */
-            enableProximity = !isVideoCall
-        )
-    }
+private fun activateCallPowerManagement() {
+    /*
+     * The general CPU wake lock remains active for the whole call.
+     *
+     * Proximity starts disabled because the original call type does
+     * not represent the current runtime media state.
+     *
+     * Flutter enables or disables proximity after checking:
+     * - local camera
+     * - remote camera
+     * - local screen share
+     * - remote screen share
+     *
+     * Speaker mode is intentionally ignored.
+     */
+    CallkitPowerManager.activate(
+        context = applicationContext,
+        enableProximity = false
+    )
+}
 
     override fun onStartCommand(
         intent: Intent?,
