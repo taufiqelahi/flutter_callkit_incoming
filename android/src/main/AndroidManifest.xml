@@ -11,6 +11,11 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL"/>
+    <uses-permission
+    android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+
+<uses-permission
+    android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
 
     <uses-permission android:name="${applicationId}.PERMISSION_CALL" />
 
@@ -55,14 +60,12 @@
                 <action android:name="${applicationId}.com.hiennv.flutter_callkit_incoming.ACTION_CALL_TIMEOUT" />
             </intent-filter>
         </receiver>
-
-        <service
-            android:enabled="true"
-            android:exported="true"
-            android:foregroundServiceType="phoneCall"
-            android:permission="${applicationId}.PERMISSION_CALL"
-            android:name="com.hiennv.flutter_callkit_incoming.CallkitNotificationService">
-        </service>
+<service
+    android:name="com.hiennv.flutter_callkit_incoming.CallkitNotificationService"
+    android:enabled="true"
+    android:exported="true"
+    android:permission="${applicationId}.PERMISSION_CALL"
+    android:foregroundServiceType="phoneCall|microphone|camera" />  
 
         <service
             android:name="com.hiennv.flutter_callkit_incoming.CallkitConnectionService"
