@@ -16,7 +16,6 @@ import androidx.core.content.ContextCompat
 class CallkitNotificationService : Service() {
 
     companion object {
-
         private const val TAG = "CallkitNotification"
 
         private val foregroundActions = setOf(
@@ -29,81 +28,41 @@ class CallkitNotificationService : Service() {
             action: String,
             data: Bundle?
         ) {
-            if (data == null) {
-                Log.w(
-                    TAG,
-                    "Service was not started because call data is missing"
-                )
-
-                CallkitPowerManager.deactivate()
-                return
-            }
-
-            val shouldShowNotification =
-                data.getBoolean(
-                    CallkitConstants.EXTRA_CALLKIT_CALLING_SHOW,
-                    true
-                )
-
-            /*
-             * A foreground service must show a notification.
-             *
-             * Do not start this service when the ongoing-call notification
-             * has been disabled.
-             */
-            if (
-                action in foregroundActions &&
-                !shouldShowNotification
-            ) {
-                Log.d(
-                    TAG,
-                    "Service was not started because ongoing notification is disabled"
-                )
-
-                CallkitPowerManager.deactivate()
-                return
-            }
-
             val intent = Intent(
                 context,
                 CallkitNotificationService::class.java
             ).apply {
                 this.action = action
-
                 putExtra(
                     CallkitConstants.EXTRA_CALLKIT_INCOMING_DATA,
                     data
                 )
             }
 
+            val shouldShowNotification =
+                data?.getBoolean(
+                    CallkitConstants.EXTRA_CALLKIT_CALLING_SHOW,
+                    true
+                ) ?: false
+
             if (
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-                action in foregroundActions
+                action in foregroundActions &&
+                shouldShowNotification
             ) {
-                ContextCompat.startForegroundService(
-                    context,
-                    intent
-                )
+                ContextCompat.startForegroundService(context, intent)
             } else {
                 context.startService(intent)
             }
         }
 
-        fun stopService(
-            context: Context
-        ) {
-            /*
-             * Release immediately instead of waiting for Android
-             * to invoke onDestroy().
-             */
-            CallkitPowerManager.deactivate()
-
-            context.stopService(
-                Intent(
-                    context,
-                    CallkitNotificationService::class.java
-                )
+        fun stopService(context: Context) {
+            val intent = Intent(
+                context,
+                CallkitNotificationService::class.java
             )
+
+            context.stopService(intent)
         }
     }
 
@@ -116,33 +75,7 @@ class CallkitNotificationService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-
-        Log.d(
-            TAG,
-            "Call notification service created"
-        )
-    }
-
-    /**
-     * Activates the CPU wake lock for the active call.
-     *
-     * Proximity initially remains disabled because the original call type
-     * does not necessarily represent the current media state.
-     *
-     * Flutter will later enable proximity when:
-     * - the call is connected;
-     * - the local camera is off;
-     * - all remote cameras are off;
-     * - local screen sharing is off; and
-     * - remote screen sharing is off.
-     *
-     * Speaker mode is intentionally ignored.
-     */
-    private fun activateCallPowerManagement() {
-        CallkitPowerManager.activate(
-            context = applicationContext,
-            enableProximity = false
-        )
+        Log.d(TAG, "Call notification service created")
     }
 
     override fun onStartCommand(
@@ -153,286 +86,186 @@ class CallkitNotificationService : Service() {
         val action = intent?.action
 
         /*
-         * START_STICKY can restart the service without the original Intent.
-         * Without the action and call bundle, the foreground notification
-         * cannot safely be rebuilt.
+         * START_STICKY may restart the service with a null Intent.
+         * For a normal Recent Apps swipe, the existing service should
+         * remain alive because onTaskRemoved does not stop it.
          */
         if (action == null) {
-            Log.w(
-                TAG,
-                "Service restarted without an action"
-            )
-
-            CallkitPowerManager.deactivate()
-            stopSelf(startId)
-
-            return START_NOT_STICKY
+            Log.w(TAG, "Service restarted with null action")
+            return START_STICKY
         }
 
-        val bundle =
-            intent.getBundleExtra(
-                CallkitConstants.EXTRA_CALLKIT_INCOMING_DATA
-            )
+        val bundle = intent.getBundleExtra(
+            CallkitConstants.EXTRA_CALLKIT_INCOMING_DATA
+        )
 
         if (bundle == null) {
-            Log.w(
-                TAG,
-                "Missing call notification bundle"
-            )
-
-            CallkitPowerManager.deactivate()
-            stopSelf(startId)
-
-            return START_NOT_STICKY
+            Log.w(TAG, "Missing call notification bundle")
+            return START_STICKY
         }
 
-        val startedSuccessfully =
-            when (action) {
-                CallkitConstants.ACTION_CALL_START -> {
+        when (action) {
+            CallkitConstants.ACTION_CALL_START -> {
+                val shouldShow = bundle.getBoolean(
+                    CallkitConstants.EXTRA_CALLKIT_CALLING_SHOW,
+                    true
+                )
+
+                if (shouldShow) {
                     getCallkitNotificationManager()
                         ?.createNotificationChanel(bundle)
 
-                    val foregroundStarted =
-                        showOngoingCallNotification(bundle)
-
-                    if (foregroundStarted) {
-                        /*
-                         * The service successfully became a foreground
-                         * service. The CPU wake lock can now be acquired.
-                         */
-                        activateCallPowerManagement()
-                    }
-
-                    foregroundStarted
-                }
-
-                CallkitConstants.ACTION_CALL_ACCEPT -> {
-                    getCallkitNotificationManager()
-                        ?.clearIncomingNotification(
-                            bundle,
-                            true
-                        )
-
-                    val foregroundStarted =
-                        showOngoingCallNotification(bundle)
-
-                    if (foregroundStarted) {
-                        /*
-                         * The accepted incoming call successfully became
-                         * a foreground service.
-                         */
-                        activateCallPowerManagement()
-                    }
-
-                    foregroundStarted
-                }
-
-                else -> {
-                    Log.w(
-                        TAG,
-                        "Unknown service action: $action"
-                    )
-
-                    false
+                    showOngoingCallNotification(bundle)
+                } else {
+                    stopSelf()
                 }
             }
 
-        if (!startedSuccessfully) {
-            CallkitPowerManager.deactivate()
-            stopSelf(startId)
+            CallkitConstants.ACTION_CALL_ACCEPT -> {
+                getCallkitNotificationManager()
+                    ?.clearIncomingNotification(bundle, true)
 
-            return START_NOT_STICKY
+                val shouldShow = bundle.getBoolean(
+                    CallkitConstants.EXTRA_CALLKIT_CALLING_SHOW,
+                    true
+                )
+
+                if (shouldShow) {
+                    showOngoingCallNotification(bundle)
+                } else {
+                    stopSelf()
+                }
+            }
+
+            else -> {
+                Log.d(TAG, "Unknown action: $action")
+            }
         }
 
         return START_STICKY
     }
 
-    /**
-     * Starts this service in foreground mode.
-     *
-     * Returns true only when startForeground() succeeds.
-     * Wake locks must not be acquired when foreground startup fails.
-     */
-    @SuppressLint("MissingPermission")
-    private fun showOngoingCallNotification(
-        bundle: Bundle
-    ): Boolean {
-        val manager =
-            getCallkitNotificationManager()
+@SuppressLint("MissingPermission")
+private fun showOngoingCallNotification(bundle: Bundle) {
+    val manager = getCallkitNotificationManager()
 
-        if (manager == null) {
-            Log.e(
-                TAG,
-                "CallkitNotificationManager is unavailable"
-            )
+    if (manager == null) {
+        Log.e(TAG, "CallkitNotificationManager is unavailable")
+        stopSelf()
+        return
+    }
 
-            return false
+    // getOnGoingCallNotification returns CallkitNotification?
+val callkitNotification =
+    manager.getOnGoingCallNotification(bundle, false)
+        ?: run {
+            Log.e(TAG, "Could not create ongoing call notification")
+            stopSelf()
+            return
         }
 
-        val callkitNotification =
-            manager.getOnGoingCallNotification(
-                bundle,
-                false
-            ) ?: run {
-                Log.e(
-                    TAG,
-                    "Could not create ongoing call notification"
-                )
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        var serviceTypes =
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
 
-                return false
-            }
+        val microphoneGranted =
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            var serviceTypes =
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
+        val cameraGranted =
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.CAMERA
+            ) == PackageManager.PERMISSION_GRANTED
 
-            val microphoneGranted =
-                ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.RECORD_AUDIO
-                ) == PackageManager.PERMISSION_GRANTED
+        val isVideoCall =
+            bundle.getInt(
+                CallkitConstants.EXTRA_CALLKIT_TYPE,
+                0
+            ) == 1
 
-            val cameraGranted =
-                ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.CAMERA
-                ) == PackageManager.PERMISSION_GRANTED
+        if (microphoneGranted) {
+            serviceTypes =
+                serviceTypes or
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+        }
 
-            val isVideoCall =
-                bundle.getInt(
-                    CallkitConstants.EXTRA_CALLKIT_TYPE,
-                    0
-                ) == 1
+        if (isVideoCall && cameraGranted) {
+            serviceTypes =
+                serviceTypes or
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
+        }
 
-            if (microphoneGranted) {
-                serviceTypes =
-                    serviceTypes or
-                        ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
-            }
-
-            if (
-                isVideoCall &&
-                cameraGranted
-            ) {
-                serviceTypes =
-                    serviceTypes or
-                        ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
-            }
+        try {
+            startForeground(
+                callkitNotification.id,
+                callkitNotification.notification,
+                serviceTypes
+            )
+        } catch (securityException: SecurityException) {
+            Log.e(
+                TAG,
+                "Media foreground service type rejected; trying phoneCall only",
+                securityException
+            )
 
             try {
                 startForeground(
                     callkitNotification.id,
                     callkitNotification.notification,
-                    serviceTypes
-                )
-
-                Log.d(
-                    TAG,
-                    "Foreground call service started with types=$serviceTypes"
-                )
-
-                return true
-            } catch (
-                securityException: SecurityException
-            ) {
-                Log.e(
-                    TAG,
-                    "Media foreground types rejected; trying phoneCall only",
-                    securityException
-                )
-
-                return try {
-                    startForeground(
-                        callkitNotification.id,
-                        callkitNotification.notification,
-                        ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
-                    )
-
-                    Log.d(
-                        TAG,
-                        "Foreground service started with phoneCall fallback"
-                    )
-
-                    true
-                } catch (
-                    fallbackException: Exception
-                ) {
-                    Log.e(
-                        TAG,
-                        "Unable to start phone-call foreground service",
-                        fallbackException
-                    )
-
-                    false
-                }
-            } catch (
-                exception: Exception
-            ) {
-                Log.e(
-                    TAG,
-                    "Unable to start call foreground service",
-                    exception
-                )
-
-                return false
-            }
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            return try {
-                startForeground(
-                    callkitNotification.id,
-                    callkitNotification.notification,
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
                 )
-
-                Log.d(
-                    TAG,
-                    "Foreground phone-call service started"
-                )
-
-                true
-            } catch (
-                exception: Exception
-            ) {
+            } catch (fallbackException: Exception) {
                 Log.e(
                     TAG,
                     "Unable to start phone-call foreground service",
-                    exception
+                    fallbackException
                 )
-
-                false
+                stopSelf()
             }
+        } catch (exception: Exception) {
+            Log.e(
+                TAG,
+                "Unable to start call foreground service",
+                exception
+            )
+            stopSelf()
         }
-
-        return try {
+    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        try {
+            startForeground(
+                callkitNotification.id,
+                callkitNotification.notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
+            )
+        } catch (exception: Exception) {
+            Log.e(
+                TAG,
+                "Unable to start phone-call foreground service",
+                exception
+            )
+            stopSelf()
+        }
+    } else {
+        try {
             startForeground(
                 callkitNotification.id,
                 callkitNotification.notification
             )
-
-            Log.d(
-                TAG,
-                "Foreground call service started"
-            )
-
-            true
-        } catch (
-            exception: Exception
-        ) {
+        } catch (exception: Exception) {
             Log.e(
                 TAG,
                 "Unable to start foreground service",
                 exception
             )
-
-            false
+            stopSelf()
         }
     }
+}
 
-    override fun onTaskRemoved(
-        rootIntent: Intent?
-    ) {
+    override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
 
         Log.d(
@@ -440,30 +273,22 @@ class CallkitNotificationService : Service() {
             "App removed from Recents; active call service continues"
         )
 
-        /*
-         * Do not stop the foreground service here.
-         * Removing the app from Recent Apps must not end an active call.
-         */
+        // Important:
+        // Do not call stopForeground().
+        // Do not call stopSelf().
     }
 
     override fun onDestroy() {
-        Log.d(
-            TAG,
-            "Call notification service destroyed"
-        )
+        Log.d(TAG, "Call notification service destroyed")
+        super.onDestroy()
 
         /*
-         * Safety fallback. deactivate() safely checks whether each
-         * wake lock is held before releasing it.
+         * Do not remove the notification here unless the call
+         * has actually ended.
          */
-        CallkitPowerManager.deactivate()
-
-        super.onDestroy()
     }
 
-    override fun onBind(
-        intent: Intent?
-    ): IBinder? {
+    override fun onBind(intent: Intent?): IBinder? {
         return null
     }
 }
