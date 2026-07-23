@@ -54,25 +54,6 @@ class FlutterCallkitIncoming {
   static Future hideCallkitIncoming(CallKitParams params) async {
     await _channel.invokeMethod("hideCallkitIncoming", params.toJson());
   }
-  /// Controls Android's native proximity screen behavior.
-///
-/// Enable only when:
-/// - call is connected;
-/// - call is audio-only;
-/// - speaker is off;
-/// - Bluetooth/wired headset is not active.
-static Future<bool> setProximityEnabled(
-  bool enabled,
-) async {
-  final result = await _channel.invokeMethod<bool>(
-    'setProximityEnabled',
-    <String, dynamic>{
-      'enabled': enabled,
-    },
-  );
-
-  return result ?? false;
-}
 
   /// Start an Outgoing call.
   /// On iOS, using Callkit(create a history into the Phone app).
