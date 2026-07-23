@@ -368,34 +368,13 @@ class FlutterCallkitIncomingPlugin : FlutterPlugin, MethodCallHandler, ActivityA
                     result.success(true)
                 }
 
-               "endNativeSubsystemOnly" -> {
-    context?.let {
-        CallkitNotificationService.stopService(it)
-    }
-
-    result.success(true)
-}
+                "endNativeSubsystemOnly" -> {
+                    result.success(true)
+                }
 
                 "setAudioRoute" -> {
                     result.success(true)
                 }
-                "setProximityEnabled" -> {
-    val enabled =
-        call.argument<Boolean>("enabled") ?: false
-
-    val currentContext = context
-
-    if (currentContext == null) {
-        result.success(false)
-    } else {
-        CallkitPowerManager.setProximityEnabled(
-            context = currentContext,
-            enabled = enabled
-        )
-
-        result.success(true)
-    }
-}
             }
         } catch (error: Exception) {
             result.error("error", error.message, "")
