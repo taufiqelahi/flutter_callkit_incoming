@@ -209,6 +209,35 @@ class FlutterCallkitIncomingPlugin : FlutterPlugin, MethodCallHandler, ActivityA
 
                     result.success(true)
                 }
+                "showCallkitIncomingTelecom" -> {
+                    val data = Data(
+                        call.arguments() ?: HashMap(),
+                    )
+
+                    data.from = "notification"
+
+                    val currentContext = context
+
+                    if (currentContext == null) {
+                        result.success(false)
+                        return
+                    }
+
+                    val presented = if (
+                        Build.VERSION.SDK_INT >=
+                        Build.VERSION_CODES.O
+                    ) {
+                        InAppCallManager(
+                            currentContext.applicationContext,
+                        ).reportIncomingCall(
+                            data.toBundle(),
+                        )
+                    } else {
+                        false
+                    }
+
+                    result.success(presented)
+                }
 
                 "showCallkitIncomingSilently" -> {
                     val data = Data(call.arguments() ?: HashMap())

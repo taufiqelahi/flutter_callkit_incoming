@@ -144,7 +144,16 @@ class FlutterCallkitIncoming {
   static Future canUseFullScreenIntent() async {
     return await _channel.invokeMethod("canUseFullScreenIntent");
   }
+  static Future<bool> showCallkitIncomingTelecom(
+      CallKitParams params,
+      ) async {
+    final result = await _channel.invokeMethod<bool>(
+      'showCallkitIncomingTelecom',
+      params.toJson(),
+    );
 
+    return result ?? false;
+  }
   static CallEvent? _receiveCallEvent(dynamic data) {
     Event? event;
     Map<String, dynamic> body = {};

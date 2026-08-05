@@ -93,6 +93,10 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
 
         val action = intent.action ?: return
         val data = intent.extras?.getBundle(CallkitConstants.EXTRA_CALLKIT_INCOMING_DATA) ?: return
+        val callkitId = data.getString(
+            CallkitConstants.EXTRA_CALLKIT_ID,
+            "",
+        ).trim()
         when (action) {
             "${context.packageName}.${CallkitConstants.ACTION_CALL_INCOMING}" -> {
                 try {
@@ -122,6 +126,13 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
             "${context.packageName}.${CallkitConstants.ACTION_CALL_ACCEPT}" -> {
                 try {
                     // Log.d(TAG, "[CALLKIT] 📱 ACTION_CALL_ACCEPT")
+                    CallkitTelecomRegistry.answer(callkitId)
+                    FlutterCallkitIncomingPlugin
+                        .notifyEventCallbacks(
+                            CallkitEventCallback.CallEvent.ACCEPT,
+                            data,
+                        )
+
                     FlutterCallkitIncomingPlugin.notifyEventCallbacks(CallkitEventCallback.CallEvent.ACCEPT, data)
                     // start service and show ongoing call when call is accepted
                     CallkitNotificationService.startServiceWithAction(
@@ -138,12 +149,14 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
 
             "${context.packageName}.${CallkitConstants.ACTION_CALL_DECLINE}" -> {
                 try {
-                     Log.d(TAG, "[CALLKIT] 📱 ACTION_CALL_DECLINE")           
+                     Log.d(TAG, "[CALLKIT] 📱 ACTION_CALL_DECLINE")
+                    CallkitTelecomRegistry.reject(callkitId)
                     // Notify native decline callbacks
                     FlutterCallkitIncomingPlugin.notifyEventCallbacks(CallkitEventCallback.CallEvent.DECLINE, data)
                     // clear notification
                     getCallkitNotificationManager()?.clearIncomingNotification(data, false)
                     val callId = data.getString(CallkitConstants.EXTRA_CALLKIT_ID, "")
+
                     val extra = data.getSerializable(CallkitConstants.EXTRA_CALLKIT_EXTRA) as? HashMap<*, *>
                     val baseUrl = (extra?.get("baseUrl") as? String).orEmpty()
                     val receiverId = (extra?.get("receiver_id") as? String)
@@ -190,6 +203,7 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
             "${context.packageName}.${CallkitConstants.ACTION_CALL_ENDED}" -> {
                 try {
                     // clear notification and stop service
+                    CallkitTelecomRegistry.disconnect(callkitId)
                     getCallkitNotificationManager()?.clearIncomingNotification(data, false)
                     CallkitNotificationService.stopService(context)
                     sendEventFlutter(CallkitConstants.ACTION_CALL_ENDED, data)
@@ -200,7 +214,9 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
             }
 
             "${context.packageName}.${CallkitConstants.ACTION_CALL_TIMEOUT}" -> {
+
                 try {
+                    CallkitTelecomRegistry.timeout(callkitId)
                     // clear notification and show miss notification
                     val notificationManager = getCallkitNotificationManager()
                     notificationManager?.clearIncomingNotification(data, false)
