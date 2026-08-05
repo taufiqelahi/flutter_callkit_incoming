@@ -10,6 +10,7 @@ import android.telecom.DisconnectCause
 import android.telecom.PhoneAccount
 import android.telecom.PhoneAccountHandle
 import android.telecom.VideoProfile
+import android.telecom.TelecomManager
 import android.util.Log
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -136,12 +137,12 @@ class CallkitTelecomConnection(
                 callerHandle,
                 null,
             ),
-            PRESENTATION_ALLOWED,
+            TelecomManager.PRESENTATION_ALLOWED,
         )
 
         setCallerDisplayName(
             callerName,
-            PRESENTATION_ALLOWED,
+            TelecomManager.PRESENTATION_ALLOWED,
         )
 
         connectionProperties =
