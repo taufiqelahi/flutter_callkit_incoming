@@ -252,7 +252,35 @@ class FlutterCallkitIncomingPlugin : FlutterPlugin, MethodCallHandler, ActivityA
                     callkitNotificationManager?.showMissCallNotification(data.toBundle())
                     result.success(true)
                 }
+                "isTelecomPhoneAccountEnabled" -> {
+                    val currentContext = context
 
+                    if (currentContext == null) {
+                        result.success(false)
+                        return
+                    }
+
+                    val enabled = InAppCallManager(
+                        currentContext,
+                    ).isPhoneAccountEnabled()
+
+                    result.success(enabled)
+                }
+
+                "openTelecomPhoneAccountSettings" -> {
+                    val currentContext = context
+
+                    if (currentContext == null) {
+                        result.success(false)
+                        return
+                    }
+
+                    val opened = InAppCallManager(
+                        currentContext,
+                    ).openCallingAccountSettings()
+
+                    result.success(opened)
+                }
                 "startCall" -> {
                     val data = Data(call.arguments() ?: HashMap())
                     context?.sendBroadcast(

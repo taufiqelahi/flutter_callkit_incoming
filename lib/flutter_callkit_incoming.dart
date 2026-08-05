@@ -154,6 +154,21 @@ class FlutterCallkitIncoming {
 
     return result ?? false;
   }
+  static Future<bool> isTelecomPhoneAccountEnabled() async {
+    final enabled = await _channel.invokeMethod<bool>(
+      'isTelecomPhoneAccountEnabled',
+    );
+
+    return enabled ?? false;
+  }
+
+  static Future<bool> openTelecomPhoneAccountSettings() async {
+    final opened = await _channel.invokeMethod<bool>(
+      'openTelecomPhoneAccountSettings',
+    );
+
+    return opened ?? false;
+  }
   static CallEvent? _receiveCallEvent(dynamic data) {
     Event? event;
     Map<String, dynamic> body = {};

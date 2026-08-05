@@ -13,6 +13,7 @@ import android.telecom.VideoProfile
 import android.telecom.TelecomManager
 import android.util.Log
 import java.util.concurrent.atomic.AtomicBoolean
+import android.os.Build
 
 class CallkitConnectionService : ConnectionService() {
     companion object {
@@ -145,8 +146,9 @@ class CallkitTelecomConnection(
             TelecomManager.PRESENTATION_ALLOWED,
         )
 
-        connectionProperties =
-            PROPERTY_SELF_MANAGED
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            connectionProperties = PROPERTY_SELF_MANAGED
+        }
 
         setAudioModeIsVoip(true)
 
@@ -175,13 +177,15 @@ class CallkitTelecomConnection(
          * -> CallStyle/full-screen intent
          * -> CallkitIncomingActivity
          */
-        context.sendBroadcast(
-            CallkitIncomingBroadcastReceiver
-                .getIntentIncoming(
-                    context,
-                    Bundle(data),
-                ),
-        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.sendBroadcast(
+                CallkitIncomingBroadcastReceiver
+                    .getIntentIncoming(
+                        context,
+                        Bundle(data),
+                    ),
+            )
+        }
     }
 
     override fun onAnswer() {
